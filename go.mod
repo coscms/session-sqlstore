@@ -1,6 +1,6 @@
 module github.com/coscms/session-sqlstore
 
-go 1.23.1
+go 1.23
 
 require (
 	github.com/admpub/errors v0.8.2
