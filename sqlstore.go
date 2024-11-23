@@ -5,6 +5,7 @@ import (
 	"encoding/base32"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/admpub/securecookie"
 	"github.com/admpub/sessions"
 	"github.com/webx-top/echo"
+	"github.com/webx-top/echo/middleware/session/engine"
 	ss "github.com/webx-top/echo/middleware/session/engine"
 )
 
@@ -22,6 +24,7 @@ type Options struct {
 	KeyPrefix     string        `json:"keyPrefix"`
 	KeyPairs      [][]byte      `json:"-"`
 	MaxAge        int           `json:"maxAge"`
+	EmptyDataAge  int           `json:"emptyDataAge"`
 	MaxLength     int           `json:"maxLength"`
 	CheckInterval time.Duration `json:"checkInterval"`
 	MaxReconnect  int           `json:"maxReconnect"`
@@ -34,16 +37,18 @@ func (o *Options) SetDDL(ddl string) *Options {
 }
 
 type SQLStore struct {
-	db         *sql.DB
-	stmtInsert *sql.Stmt
-	stmtDelete *sql.Stmt
-	stmtUpdate *sql.Stmt
-	stmtSelect *sql.Stmt
-	gcStmt     string
+	db             *sql.DB
+	stmtInsert     *sql.Stmt
+	stmtDelete     *sql.Stmt
+	stmtUpdate     *sql.Stmt
+	stmtSelect     *sql.Stmt
+	gcMaxAgeSQL    string
+	gcEmptyDataSQL string
 
 	Codecs        []securecookie.Codec
 	table         string
 	maxAge        int
+	emptyDataAge  int
 	checkInterval time.Duration
 	keyPrefix     string
 	quiteC        chan<- struct{}
@@ -99,23 +104,28 @@ func New(db *sql.DB, cfg *Options) (*SQLStore, error) {
 		return nil, errors.Wrap(stmtErr, selQ)
 	}
 	s := &SQLStore{
-		db:            db,
-		stmtInsert:    stmtInsert,
-		stmtDelete:    stmtDelete,
-		stmtUpdate:    stmtUpdate,
-		stmtSelect:    stmtSelect,
-		gcStmt:        "DELETE FROM " + tableName + " WHERE expires < ",
-		Codecs:        securecookie.CodecsFromPairs(cfg.KeyPairs...),
-		table:         tableName,
-		maxAge:        cfg.MaxAge,
-		keyPrefix:     cfg.KeyPrefix,
-		checkInterval: cfg.CheckInterval,
+		db:             db,
+		stmtInsert:     stmtInsert,
+		stmtDelete:     stmtDelete,
+		stmtUpdate:     stmtUpdate,
+		stmtSelect:     stmtSelect,
+		gcMaxAgeSQL:    "DELETE FROM " + tableName + " WHERE expires < ",
+		gcEmptyDataSQL: "DELETE FROM " + tableName + " WHERE char_length(data) = " + strconv.Itoa(sessions.EmptyGobSize()) + " AND created < ",
+		Codecs:         securecookie.CodecsFromPairs(cfg.KeyPairs...),
+		table:          tableName,
+		maxAge:         cfg.MaxAge,
+		emptyDataAge:   cfg.EmptyDataAge,
+		keyPrefix:      cfg.KeyPrefix,
+		checkInterval:  cfg.CheckInterval,
 	}
 	if cfg.MaxLength > 0 {
 		s.MaxLength(cfg.MaxLength)
 	}
 	if len(s.keyPrefix) == 0 {
 		s.keyPrefix = `_`
+	}
+	if s.emptyDataAge <= 0 {
+		s.emptyDataAge = engine.EmptyDataAge
 	}
 	return s, nil
 }

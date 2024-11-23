@@ -6,8 +6,8 @@ require (
 	github.com/admpub/errors v0.8.2
 	github.com/admpub/null v8.0.4+incompatible
 	github.com/admpub/securecookie v1.3.0
-	github.com/admpub/sessions v0.2.1
-	github.com/webx-top/echo v1.12.12
+	github.com/admpub/sessions v0.2.3
+	github.com/webx-top/echo v1.13.2
 )
 
 require (
