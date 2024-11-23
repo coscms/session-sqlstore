@@ -246,11 +246,11 @@ func (m *SQLStore) Delete(ctx echo.Context, session *sessions.Session) error {
 }
 
 func (n *SQLStore) MaxAge(ctx echo.Context, session *sessions.Session) int {
-	if len(session.Values) == 0 {
-		return n.emptyDataAge
-	}
 	maxAge := ctx.CookieOptions().MaxAge
 	if maxAge == 0 {
+		if len(session.Values) == 0 {
+			return n.emptyDataAge
+		}
 		if n.maxAge > 0 {
 			maxAge = n.maxAge
 		} else {
