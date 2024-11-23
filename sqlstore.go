@@ -15,7 +15,6 @@ import (
 	"github.com/admpub/securecookie"
 	"github.com/admpub/sessions"
 	"github.com/webx-top/echo"
-	"github.com/webx-top/echo/middleware/session/engine"
 	ss "github.com/webx-top/echo/middleware/session/engine"
 )
 
@@ -125,7 +124,7 @@ func New(db *sql.DB, cfg *Options) (*SQLStore, error) {
 		s.keyPrefix = `_`
 	}
 	if s.emptyDataAge <= 0 {
-		s.emptyDataAge = engine.EmptyDataAge
+		s.emptyDataAge = ss.EmptyDataAge
 	}
 	return s, nil
 }
