@@ -5,7 +5,6 @@ import (
 	"encoding/base32"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,13 +35,12 @@ func (o *Options) SetDDL(ddl string) *Options {
 }
 
 type SQLStore struct {
-	db             *sql.DB
-	stmtInsert     *sql.Stmt
-	stmtDelete     *sql.Stmt
-	stmtUpdate     *sql.Stmt
-	stmtSelect     *sql.Stmt
-	gcMaxAgeSQL    string
-	gcEmptyDataSQL string
+	db          *sql.DB
+	stmtInsert  *sql.Stmt
+	stmtDelete  *sql.Stmt
+	stmtUpdate  *sql.Stmt
+	stmtSelect  *sql.Stmt
+	gcMaxAgeSQL string
 
 	Codecs        []securecookie.Codec
 	table         string
@@ -103,19 +101,18 @@ func New(db *sql.DB, cfg *Options) (*SQLStore, error) {
 		return nil, errors.Wrap(stmtErr, selQ)
 	}
 	s := &SQLStore{
-		db:             db,
-		stmtInsert:     stmtInsert,
-		stmtDelete:     stmtDelete,
-		stmtUpdate:     stmtUpdate,
-		stmtSelect:     stmtSelect,
-		gcMaxAgeSQL:    "DELETE FROM " + tableName + " WHERE expires < ",
-		gcEmptyDataSQL: "DELETE FROM " + tableName + " WHERE char_length(data) = " + strconv.Itoa(sessions.EmptyGobSize()) + " AND created < ",
-		Codecs:         securecookie.CodecsFromPairs(cfg.KeyPairs...),
-		table:          tableName,
-		maxAge:         cfg.MaxAge,
-		emptyDataAge:   cfg.EmptyDataAge,
-		keyPrefix:      cfg.KeyPrefix,
-		checkInterval:  cfg.CheckInterval,
+		db:            db,
+		stmtInsert:    stmtInsert,
+		stmtDelete:    stmtDelete,
+		stmtUpdate:    stmtUpdate,
+		stmtSelect:    stmtSelect,
+		gcMaxAgeSQL:   "DELETE FROM " + tableName + " WHERE expires < ",
+		Codecs:        securecookie.CodecsFromPairs(cfg.KeyPairs...),
+		table:         tableName,
+		maxAge:        cfg.MaxAge,
+		emptyDataAge:  cfg.EmptyDataAge,
+		keyPrefix:     cfg.KeyPrefix,
+		checkInterval: cfg.CheckInterval,
 	}
 	if cfg.MaxLength > 0 {
 		s.MaxLength(cfg.MaxLength)
@@ -221,11 +218,7 @@ func (m *SQLStore) insert(ctx echo.Context, session *sessions.Session) error {
 	}
 	modifiedAt = createdAt
 	expires := session.Values[m.keyPrefix+"expires"]
-	if expires == nil {
-		expiredAt = nowTs + int64(m.MaxAge(ctx))
-	} else {
-		expiredAt = expires.(int64)
-	}
+
 	delete(session.Values, m.keyPrefix+"created")
 	delete(session.Values, m.keyPrefix+"expires")
 	delete(session.Values, m.keyPrefix+"modified")
@@ -233,6 +226,11 @@ func (m *SQLStore) insert(ctx echo.Context, session *sessions.Session) error {
 	encoded, err := securecookie.Gob.Serialize(session.Values)
 	if err != nil {
 		return err
+	}
+	if expires == nil {
+		expiredAt = nowTs + int64(m.MaxAge(ctx, session))
+	} else {
+		expiredAt = expires.(int64)
 	}
 	_, insErr := m.stmtInsert.Exec(session.ID, encoded, createdAt, modifiedAt, expiredAt)
 	return insErr
@@ -247,7 +245,10 @@ func (m *SQLStore) Delete(ctx echo.Context, session *sessions.Session) error {
 	return m.Remove(session.ID)
 }
 
-func (n *SQLStore) MaxAge(ctx echo.Context) int {
+func (n *SQLStore) MaxAge(ctx echo.Context, session *sessions.Session) int {
+	if len(session.Values) == 0 {
+		return n.emptyDataAge
+	}
 	maxAge := ctx.CookieOptions().MaxAge
 	if maxAge == 0 {
 		if n.maxAge > 0 {
@@ -279,9 +280,17 @@ func (m *SQLStore) save(ctx echo.Context, session *sessions.Session) error {
 	} else {
 		createdAt = created.(int64)
 	}
-
 	expires := session.Values[m.keyPrefix+"expires"]
-	maxAge := int64(m.MaxAge(ctx))
+
+	delete(session.Values, m.keyPrefix+"created")
+	delete(session.Values, m.keyPrefix+"expires")
+	delete(session.Values, m.keyPrefix+"modified")
+
+	encoded, err := securecookie.Gob.Serialize(session.Values)
+	if err != nil {
+		return err
+	}
+	maxAge := int64(m.MaxAge(ctx, session))
 	if expires == nil {
 		expiredAt = nowTs + maxAge
 	} else {
@@ -290,14 +299,6 @@ func (m *SQLStore) save(ctx echo.Context, session *sessions.Session) error {
 		if expiredAt < expiresTs {
 			expiredAt = expiresTs
 		}
-	}
-
-	delete(session.Values, m.keyPrefix+"created")
-	delete(session.Values, m.keyPrefix+"expires")
-	delete(session.Values, m.keyPrefix+"modified")
-	encoded, err := securecookie.Gob.Serialize(session.Values)
-	if err != nil {
-		return err
 	}
 	//encoded := string(b)
 	_, updErr := m.stmtUpdate.Exec(encoded, createdAt, expiredAt, session.ID)

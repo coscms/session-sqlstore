@@ -52,9 +52,5 @@ func (m *SQLStore) cleanup(interval time.Duration, quit <-chan struct{}, done ch
 // deleteExpired deletes expired sessions from the database.
 func (m *SQLStore) deleteExpired() error {
 	_, err := m.db.Exec(m.gcMaxAgeSQL + strconv.FormatInt(time.Now().Unix(), 10))
-	if err != nil {
-		return err
-	}
-	_, err = m.db.Exec(m.gcEmptyDataSQL + strconv.FormatInt(time.Now().Unix()-int64(m.emptyDataAge), 10))
 	return err
 }
