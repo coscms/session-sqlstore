@@ -196,10 +196,7 @@ func (m *SQLStore) Remove(sessionID string) error {
 		return nil
 	}
 	_, delErr := m.stmtDelete.Exec(sessionID)
-	if delErr != nil {
-		return delErr
-	}
-	return nil
+	return delErr
 }
 
 func (m *SQLStore) insert(ctx echo.Context, session *sessions.Session) error {
