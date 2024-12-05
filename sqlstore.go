@@ -245,14 +245,14 @@ func (m *SQLStore) Delete(ctx echo.Context, session *sessions.Session) error {
 	return m.Remove(session.ID)
 }
 
-func (n *SQLStore) MaxAge(ctx echo.Context, session *sessions.Session) int {
+func (m *SQLStore) MaxAge(ctx echo.Context, session *sessions.Session) int {
 	maxAge := ctx.CookieOptions().MaxAge
 	if maxAge == 0 {
 		if len(session.Values) == 0 {
-			return n.emptyDataAge
+			return m.emptyDataAge
 		}
-		if n.maxAge > 0 {
-			maxAge = n.maxAge
+		if m.maxAge > 0 {
+			maxAge = m.maxAge
 		} else {
 			maxAge = ss.DefaultMaxAge
 		}
@@ -263,8 +263,8 @@ func (n *SQLStore) MaxAge(ctx echo.Context, session *sessions.Session) int {
 // MaxLength restricts the maximum length of new sessions to l.
 // If l is 0 there is no limit to the size of a session, use with caution.
 // The default for a new FilesystemStore is 4096.
-func (s *SQLStore) MaxLength(l int) {
-	securecookie.SetMaxLength(s.Codecs, l)
+func (m *SQLStore) MaxLength(l int) {
+	securecookie.SetMaxLength(m.Codecs, l)
 }
 
 func (m *SQLStore) save(ctx echo.Context, session *sessions.Session) error {
@@ -298,7 +298,7 @@ func (m *SQLStore) save(ctx echo.Context, session *sessions.Session) error {
 		expiredAt = nowTs + maxAge
 	} else {
 		expiredAt = expires.(int64)
-		if expiredAt - createdAt == n.emptyDataAge {
+		if expiredAt - createdAt == m.emptyDataAge {
 			expiredAt = nowTs + maxAge
 		} else if expiredAt > nowTs && expiredAt < nowTs + maxAge/2 {
 			expiredAt = nowTs + (maxAge-(expiredAt-nowTs))
