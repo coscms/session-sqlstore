@@ -298,7 +298,7 @@ func (m *SQLStore) save(ctx echo.Context, session *sessions.Session) error {
 		expiredAt = nowTs + maxAge
 	} else {
 		expiredAt = expires.(int64)
-		if expiredAt - createdAt == m.emptyDataAge {
+		if expiredAt - createdAt == int64(m.emptyDataAge) {
 			expiredAt = nowTs + maxAge
 		} else if expiredAt > nowTs && expiredAt < nowTs + maxAge/2 {
 			expiredAt = nowTs + (maxAge-(expiredAt-nowTs))
