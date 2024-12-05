@@ -286,19 +286,22 @@ func (m *SQLStore) save(ctx echo.Context, session *sessions.Session) error {
 	delete(session.Values, m.keyPrefix+"expires")
 	delete(session.Values, m.keyPrefix+"modified")
 
+	maxAge := int64(m.MaxAge(ctx, session))
+	if maxAge < 0 {
+		return m.Delete(ctx, session)
+	}
 	encoded, err := securecookie.Gob.Serialize(session.Values)
 	if err != nil {
 		return err
 	}
-	maxAge := int64(m.MaxAge(ctx, session))
 	if expires == nil {
 		expiredAt = nowTs + maxAge
 	} else {
 		expiredAt = expires.(int64)
 		if expiredAt - createdAt == n.emptyDataAge {
 			expiredAt = nowTs + maxAge
-		} else if expiredAt > nowTs && expiredAt < nowTs + 1800 {
-			expiredAt = nowTs + (3600-(expiredAt-nowTs))
+		} else if expiredAt > nowTs && expiredAt < nowTs + maxAge/2 {
+			expiredAt = nowTs + (maxAge-(expiredAt-nowTs))
 		}
 	}
 	//encoded := string(b)
